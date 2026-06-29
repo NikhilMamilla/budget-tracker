@@ -5,16 +5,19 @@ const os = require('os');
 const fs = require('fs');
 require('dotenv').config();
 
-const dialect = process.env.DB_DIALECT || 'mysql';
+const isVercel = !!process.env.VERCEL;
+const rawDialect = process.env.DB_DIALECT;
 const host = process.env.DB_HOST || 'localhost';
 const port = process.env.DB_PORT || 3306;
 const user = process.env.DB_USER || 'root';
 const password = process.env.DB_PASS || '';
 const database = process.env.DB_NAME || 'expense_tracker_db';
 
-// Cross-platform serverless temp storage path
+// On Vercel, if DB_HOST is localhost or no dialect specified, default instantly to SQLite to prevent 5s connection timeouts
+const dialect = (isVercel && (host === 'localhost' || !rawDialect)) ? 'sqlite' : (rawDialect || 'mysql');
+
 const tempDir = os.tmpdir();
-const sqliteStoragePath = (process.env.VERCEL || process.env.NODE_ENV === 'production')
+const sqliteStoragePath = (isVercel || process.env.NODE_ENV === 'production')
   ? path.join(tempDir, 'database.sqlite')
   : path.join(__dirname, '../database.sqlite');
 
@@ -41,7 +44,7 @@ if (dialect === 'mysql') {
 const connectDB = async () => {
   if (dialect === 'mysql') {
     try {
-      const connection = await mysql.createConnection({ host, port, user, password, connectTimeout: 5000 });
+      const connection = await mysql.createConnection({ host, port, user, password, connectTimeout: 3000 });
       await connection.query(`CREATE DATABASE IF NOT EXISTS \`${database}\`;`);
       await connection.end();
       console.log(`[Database] MySQL schema \`${database}\` verified/created.`);

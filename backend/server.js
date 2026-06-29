@@ -48,23 +48,24 @@ const limiter = rateLimit({
     errors: null
   }
 });
-app.use('/api/', limiter);
+app.use(limiter);
 
 // Request Parsing & Logging
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Ensure DB middleware on all API routes
-app.use('/api', ensureDbConnected);
+// Ensure DB middleware on all API requests
+app.use(ensureDbConnected);
 
 // Health Check Endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'FinVista Enterprise API is running smoothly' });
 });
 
-// API Routes
+// API Routes (Mounted on both /api and / for fail-safe serverless routing)
 app.use('/api', routes);
+app.use('/', routes);
 
 // 404 Handler
 app.use((req, res) => {
