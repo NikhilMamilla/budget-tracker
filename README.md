@@ -1,4 +1,4 @@
-# AuraX | Enterprise Personal Expense Tracker & Financial Intelligence
+# FinVista | Enterprise Personal Expense Tracker & Financial Intelligence
 
 A high-performance, enterprise-grade Personal Expense Tracker SaaS web application built with a modern 2026 SaaS design language. Designed for executive financial visibility, autonomous transaction reporting, and real-time category intelligence.
 
