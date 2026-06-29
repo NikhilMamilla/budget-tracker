@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: {
     'Content-Type': 'application/json'
   }
@@ -24,7 +24,6 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Clear token and trigger auth logout event if unauthenticated
       localStorage.removeItem('aurax_token');
       localStorage.removeItem('aurax_user');
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register' && window.location.pathname !== '/') {
