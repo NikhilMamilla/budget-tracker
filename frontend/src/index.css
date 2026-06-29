@@ -391,6 +391,8 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
@@ -402,7 +404,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 .hero-actions {
   display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 .splash-hero {
   flex: 1;
