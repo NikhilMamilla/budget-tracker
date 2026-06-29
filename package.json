@@ -2,11 +2,20 @@
   "name": "finvista-monorepo-root",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "build": "npm run build --workspace=frontend",
+    "dev": "npm run dev --workspace=frontend",
+    "start": "npm run start --workspace=backend",
+    "install-all": "npm install"
   },
   "dependencies": {
     "vite": "^5.2.11"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0"
   }
 }

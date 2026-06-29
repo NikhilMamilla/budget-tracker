@@ -29,6 +29,30 @@ A high-performance, enterprise-grade Personal Expense Tracker SaaS web applicati
 
 ## 🚀 Quick Start Guide
 
+## GitHub & Vercel Deployment
+
+This repository is set up for a standard GitHub push and Vercel deployment flow.
+
+### 1. Push to GitHub
+```bash
+git add .
+git commit -m "Prepare FinVista for Vercel deployment"
+git push origin main
+```
+
+### 2. Deploy to Vercel
+1. Import the repository in Vercel.
+2. Use the root folder as the project root.
+3. Keep the default build command and output directory settings.
+4. Add the following environment variables in Vercel:
+   - `NODE_ENV=production`
+   - `JWT_SECRET=change-this-to-a-long-random-string`
+   - `DB_DIALECT=sqlite`
+
+The app is designed to fall back to a local SQLite database automatically in production when no external database is configured.
+
+---
+
 ### Prerequisites
 - Node.js (v18+ recommended)
 - MySQL Server (Running locally or remotely)
