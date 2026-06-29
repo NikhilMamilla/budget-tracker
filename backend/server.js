@@ -13,19 +13,28 @@ const { errorResponse } = require('./utils/apiResponse');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware to ensure Database is connected and synced on serverless invocations
-let dbInitialized = false;
-const ensureDbConnected = async (req, res, next) => {
-  if (!dbInitialized) {
-    try {
+// Promise-based initialization lock to prevent concurrent sync collisions on cold starts
+let dbInitPromise = null;
+const initDatabase = async () => {
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
       await connectDB();
       await sequelize.sync({ alter: false });
-      dbInitialized = true;
-    } catch (err) {
-      console.error('[Serverless DB Init Error]:', err);
-    }
+      console.log('[Database] Synchronized successfully.');
+    })();
   }
-  next();
+  return dbInitPromise;
+};
+
+const ensureDbConnected = async (req, res, next) => {
+  try {
+    await initDatabase();
+    next();
+  } catch (err) {
+    console.error('[Serverless DB Init Error]:', err);
+    dbInitPromise = null; // Reset on failure to allow retry
+    return errorResponse(res, 500, 'Database connection initialization failed', err.message);
+  }
 };
 
 // Security Middlewares
@@ -63,7 +72,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'success', message: 'FinVista Enterprise API is running smoothly' });
 });
 
-// API Routes (Mounted on both /api and / for fail-safe serverless routing)
+// API Routes
 app.use('/api', routes);
 app.use('/', routes);
 
@@ -79,11 +88,7 @@ app.use(errorHandler);
 if (process.env.NODE_ENV !== 'production' || require.main === module) {
   const startServer = async () => {
     try {
-      await connectDB();
-      await sequelize.sync({ alter: false });
-      dbInitialized = true;
-      console.log('[Database] Models synchronized successfully.');
-
+      await initDatabase();
       app.listen(PORT, () => {
         console.log(`=======================================================`);
         console.log(`🚀 Server listening on port ${PORT}`);
