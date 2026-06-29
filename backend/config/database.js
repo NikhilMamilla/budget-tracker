@@ -6,9 +6,6 @@ const fs = require('fs');
 require('dotenv').config();
 
 const isProduction = !!(process.env.VERCEL || process.env.NODE_ENV === 'production');
-
-// Public Cloud Database Connection String or Environment Variables
-// Supports PlanetScale, Railway, Aiven, Supabase, and AWS RDS
 const dbUrl = process.env.DATABASE_URL || process.env.MYSQL_URL;
 
 let sequelize;
@@ -23,6 +20,19 @@ const tempDir = os.tmpdir();
 const sqliteStoragePath = isProduction
   ? path.join(tempDir, 'finvista_production.sqlite')
   : path.join(__dirname, '../database.sqlite');
+
+const createSqliteInstance = () => {
+  if (!fs.existsSync(path.dirname(sqliteStoragePath))) {
+    fs.mkdirSync(path.dirname(sqliteStoragePath), { recursive: true });
+  }
+
+  return new Sequelize({
+    dialect: 'sqlite',
+    storage: sqliteStoragePath,
+    logging: false,
+    define: { timestamps: true, underscored: true }
+  });
+};
 
 if (dbUrl) {
   console.log('[Database] Initializing via cloud DATABASE_URL connection string...');
@@ -39,7 +49,6 @@ if (dbUrl) {
   });
   dialect = sequelize.getDialect();
 } else {
-  // If running in cloud production (Vercel) without external cloud DB credentials, default to SQLite in temp storage
   if (isProduction && (host === 'localhost' || !process.env.DB_HOST)) {
     dialect = 'sqlite';
   }
@@ -47,63 +56,52 @@ if (dbUrl) {
   if (dialect === 'mysql') {
     console.log(`[Database] Configuring MySQL -> Host: ${host}:${port}, User: ${user}, Database: ${database}`);
     sequelize = new Sequelize(database, user, password, {
-      host: host,
-      port: port,
+      host,
+      port,
       dialect: 'mysql',
       logging: false,
       pool: { max: 10, min: 0, acquire: 30000, idle: 10000 },
       dialectOptions: {
-        ssl: process.env.DB_SSL === 'true' ? {
-          require: true,
-          rejectUnauthorized: false
-        } : false
+        ssl: process.env.DB_SSL === 'true' ? { require: true, rejectUnauthorized: false } : false
       },
       define: { timestamps: true, underscored: true }
     });
   } else {
     console.log(`[Database] Configuring SQLite Cloud Storage -> ${sqliteStoragePath}`);
-    if (!fs.existsSync(path.dirname(sqliteStoragePath))) {
-      fs.mkdirSync(path.dirname(sqliteStoragePath), { recursive: true });
-    }
-    sequelize = new Sequelize({
-      dialect: 'sqlite',
-      storage: sqliteStoragePath,
-      logging: false,
-      define: { timestamps: true, underscored: true }
-    });
+    sequelize = createSqliteInstance();
   }
 }
 
 const connectDB = async () => {
-  if (dialect === 'mysql' && !dbUrl) {
-    try {
-      const connection = await mysql.createConnection({
-        host, port, user, password, connectTimeout: 4000,
-        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
-      });
-      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${database}\`;`);
-      await connection.end();
-      console.log(`[Database] MySQL schema \`${database}\` verified/created.`);
-
-      await sequelize.authenticate();
-      console.log(`[Database] Sequelize connected successfully to MySQL host ${host}.`);
-    } catch (error) {
-      console.warn(`[Database] Cloud MySQL connection attempt failed to ${host} (${error.message}). Swapping to cloud storage fallback...`);
-      if (!fs.existsSync(path.dirname(sqliteStoragePath))) {
-        fs.mkdirSync(path.dirname(sqliteStoragePath), { recursive: true });
+  try {
+    if (dialect === 'mysql' && !dbUrl) {
+      try {
+        const connection = await mysql.createConnection({
+          host,
+          port,
+          user,
+          password,
+          connectTimeout: 4000,
+          ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
+        });
+        await connection.query(`CREATE DATABASE IF NOT EXISTS \`${database}\`;`);
+        await connection.end();
+        await sequelize.authenticate();
+        console.log(`[Database] Sequelize connected successfully to MySQL host ${host}.`);
+      } catch (error) {
+        console.warn(`[Database] MySQL unavailable (${error.message}). Falling back to SQLite.`);
+        sequelize = createSqliteInstance();
+        dialect = 'sqlite';
+        await sequelize.authenticate();
       }
-      sequelize = new Sequelize({
-        dialect: 'sqlite',
-        storage: sqliteStoragePath,
-        logging: false,
-        define: { timestamps: true, underscored: true }
-      });
+    } else {
       await sequelize.authenticate();
-      console.log('[Database] Cloud storage database connected successfully.');
     }
-  } else {
-    await sequelize.authenticate();
+
     console.log(`[Database] Database connected successfully via ${dialect}.`);
+  } catch (error) {
+    console.error('[Database] Connection failed:', error.message);
+    throw error;
   }
 };
 
