@@ -3,6 +3,29 @@ import api from '../services/api';
 
 const AuthContext = createContext();
 
+const normalizeUserPayload = (payload) => {
+  if (!payload) return null;
+
+  if (payload.user && typeof payload.user === 'object') {
+    return payload.user;
+  }
+
+  if (payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
+    if (payload.data.user && typeof payload.data.user === 'object') {
+      return payload.data.user;
+    }
+    if ('name' in payload.data || 'email' in payload.data) {
+      return payload.data;
+    }
+  }
+
+  if (payload && typeof payload === 'object' && !Array.isArray(payload) && ('name' in payload || 'email' in payload)) {
+    return payload;
+  }
+
+  return payload;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('aurax_user');
@@ -16,8 +39,9 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const res = await api.get('/auth/profile');
-          setUser(res.data);
-          localStorage.setItem('aurax_user', JSON.stringify(res.data));
+          const profile = normalizeUserPayload(res);
+          setUser(profile);
+          localStorage.setItem('aurax_user', JSON.stringify(profile));
         } catch (err) {
           console.error('Session validation failed:', err);
           logout();
@@ -30,7 +54,9 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
-    const { user: userData, token: authToken } = res.data;
+    const userPayload = normalizeUserPayload(res);
+    const authToken = res?.token || res?.data?.token || null;
+    const userData = userPayload?.user || userPayload || null;
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('aurax_user', JSON.stringify(userData));
@@ -40,7 +66,9 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     const res = await api.post('/auth/register', { name, email, password });
-    const { user: userData, token: authToken } = res.data;
+    const userPayload = normalizeUserPayload(res);
+    const authToken = res?.token || res?.data?.token || null;
+    const userData = userPayload?.user || userPayload || null;
     setUser(userData);
     setToken(authToken);
     localStorage.setItem('aurax_user', JSON.stringify(userData));
